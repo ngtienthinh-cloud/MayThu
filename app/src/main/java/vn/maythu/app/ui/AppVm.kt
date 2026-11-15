@@ -248,6 +248,7 @@ class AppVm(app: Application) : AndroidViewModel(app) {
         return ch
     }
 
+    @JvmName("applyUiMode")
     fun setUiMode(mode: String) {
         uiMode = mode
         store.putString("uiMode", mode)
