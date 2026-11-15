@@ -1,0 +1,114 @@
+name: Build PC
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'desktop/**'
+      - '.github/workflows/build-pc.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    runs-on: windows-latest
+    steps:
+      - name: Lấy mã nguồn
+        uses: actions/checkout@v4
+
+      - name: Cài .NET 8
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '8.0.x'
+
+      - name: Kiểm tra biểu tượng app
+        shell: pwsh
+        run: Get-Item desktop/MayThu/app.ico | Format-List Name, Length
+
+      - name: Build app
+        shell: pwsh
+        run: |
+          $ver = "1.0.${{ github.run_number }}"
+          dotnet publish desktop/MayThu/MayThu.csproj -c Release -r win-x64 --self-contained true -p:Version=$ver -p:PublishReadyToRun=true -o out/MayThu | Tee-Object -FilePath build.log
+          if ($LASTEXITCODE -ne 0) { exit 1 }
+          if (Test-Path out/MayThu/libvlc/win-x86) { Remove-Item -Recurse -Force out/MayThu/libvlc/win-x86 }
+          $mb = (Get-ChildItem out/MayThu -Recurse | Measure-Object Length -Sum).Sum / 1MB
+          Write-Host ("Kích thước: {0:N1} MB" -f $mb)
+
+      - name: Chạy thử app và chụp màn hình
+        shell: pwsh
+        run: |
+          New-Item -ItemType Directory -Force shots | Out-Null
+          $p = Start-Process -FilePath "out/MayThu/MayThu.exe" -ArgumentList @('--selftest', "$PWD\shots") -PassThru
+          if (-not $p.WaitForExit(180000)) {
+            "TIMEOUT" | Out-File shots/timeout.txt
+            Stop-Process -Id $p.Id -Force
+          }
+          "exit=$($p.ExitCode)" | Out-File shots/exit.txt
+          if (Test-Path out/MayThu/MayThu-data) { Remove-Item -Recurse -Force out/MayThu/MayThu-data }
+          Get-ChildItem shots | Format-Table Name, Length | Out-String | Write-Host
+          if (Test-Path shots/selftest.txt) { Get-Content shots/selftest.txt | Write-Host }
+          if (Test-Path shots/errors.txt) { Get-Content shots/errors.txt | Write-Host }
+          if (-not (Test-Path shots/selftest.txt) -or -not (Select-String -Path shots/selftest.txt -Pattern 'RESULT OK' -Quiet)) {
+            Write-Host "::error::App chạy thử không đạt"
+            exit 1
+          }
+
+      - name: Tạo bộ cài đặt
+        shell: pwsh
+        run: |
+          $PSNativeCommandUseErrorActionPreference = $false
+          $iscc = "${env:ProgramFiles(x86)}\Inno Setup 6\ISCC.exe"
+          if (-not (Test-Path $iscc)) { choco install innosetup -y --no-progress | Out-Null }
+          $iss = "$PWD\desktop\installer.iss"
+          $t = [IO.File]::ReadAllText($iss, [Text.Encoding]::UTF8)
+          [IO.File]::WriteAllText($iss, $t, (New-Object System.Text.UTF8Encoding $true))
+          New-Item -ItemType Directory -Force dist | Out-Null
+          & $iscc "/DAppVer=1.0.${{ github.run_number }}" "/DSrc=$PWD\out\MayThu" "/O$PWD\dist" $iss | Tee-Object -FilePath setup.log
+          if ($LASTEXITCODE -ne 0) { exit 1 }
+
+      - name: Đóng gói bản chạy ngay (portable)
+        shell: pwsh
+        run: |
+          Push-Location out
+          7z a -tzip -mx=7 ..\dist\MayThu-Portable.zip MayThu | Out-Null
+          Pop-Location
+          Get-ChildItem dist | Format-Table Name, Length | Out-String | Write-Host
+
+      - name: Đưa lên trang tải
+        shell: pwsh
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          $PSNativeCommandUseErrorActionPreference = $false
+          $ver = "1.0.${{ github.run_number }}"
+          $notes = "Máy Thu cho Windows 10 và 11 (64-bit), phiên bản $ver.`n`n- MayThu-Setup.exe: bộ cài, tự tạo biểu tượng ở Desktop và menu Start.`n- MayThu-Portable.zip: giải nén ra bất kỳ đâu (kể cả USB) rồi chạy MayThu.exe, không cần cài."
+          gh release view pc --repo ${{ github.repository }} *> $null
+          if ($LASTEXITCODE -ne 0) {
+            gh release create pc --repo ${{ github.repository }} --title "Máy Thu cho Windows" --notes $notes --latest=false
+          } else {
+            gh release edit pc --repo ${{ github.repository }} --title "Máy Thu cho Windows" --notes $notes --latest=false
+          }
+          gh release upload pc dist/MayThu-Setup.exe dist/MayThu-Portable.zip --repo ${{ github.repository }} --clobber
+          if ($LASTEXITCODE -ne 0) { exit 1 }
+          git ls-remote origin "refs/tags/pc" | Write-Host
+
+      - name: Gửi nhật ký và ảnh chụp
+        if: always()
+        shell: bash
+        run: |
+          mkdir -p /tmp/log
+          if [ -f build.log ]; then tail -n 3000 build.log > /tmp/log/build.log; grep -n -E "error|warning MC|FAILED" build.log | head -300 > /tmp/log/errors.txt || true; fi
+          if [ -f setup.log ]; then tail -n 300 setup.log > /tmp/log/setup.log; fi
+          if [ -d shots ]; then cp -r shots /tmp/log/; fi
+          echo "run ${{ github.run_number }} ${{ job.status }}" > /tmp/log/run.txt
+          cd /tmp/log
+          git init -q
+          git checkout -q -b build-log-pc
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add -A
+          git commit -q -m "Nhật ký build PC ${{ github.run_number }}"
+          git push -f -q "https://x-access-token:${{ github.token }}@github.com/${{ github.repository }}.git" build-log-pc
