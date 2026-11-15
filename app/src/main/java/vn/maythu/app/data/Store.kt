@@ -26,6 +26,13 @@ class Store(ctx: Context) {
         sp.edit().putString("recent", Channel.listToJson(list)).apply()
     }
 
+    fun alarms(): List<AlarmItem> = AlarmItem.listFromJson(sp.getString("alarms", null))
+
+    /** Ghi ngay (commit) vì có thể được gọi khi báo thức vừa reo, app chưa mở. */
+    fun saveAlarms(list: List<AlarmItem>) {
+        sp.edit().putString("alarms", AlarmItem.listToJson(list)).commit()
+    }
+
     fun playlists(): List<Playlist> {
         return try {
             val a = JSONArray(sp.getString("playlists", "[]") ?: "[]")
