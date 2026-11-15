@@ -1,0 +1,85 @@
+<Window x:Class="MayThu.AlarmWindow"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        Title="Đặt báo thức" Width="580" Height="760" MinHeight="480"
+        WindowStartupLocation="CenterOwner" ResizeMode="CanResize" ShowInTaskbar="False"
+        Background="{StaticResource InkBrush}" Foreground="{StaticResource TextBrush}"
+        FontFamily="Segoe UI" FontSize="14" Icon="pack://application:,,,/app.ico"
+        UseLayoutRounding="True" TextOptions.TextFormattingMode="Display">
+    <Grid x:Name="Root" Background="{StaticResource InkBrush}">
+        <Grid.RowDefinitions>
+            <RowDefinition Height="*"/>
+            <RowDefinition Height="Auto"/>
+        </Grid.RowDefinitions>
+        <ScrollViewer VerticalScrollBarVisibility="Auto">
+            <StackPanel Margin="26,20,26,16">
+                <TextBlock x:Name="Heading" FontSize="22" FontWeight="Bold" Text="Báo thức mới"/>
+
+                <TextBlock Text="Việc cần làm" Style="{StaticResource Label}"/>
+                <WrapPanel>
+                    <RadioButton x:Name="ActPlay" GroupName="act" Style="{StaticResource Chip}" Content="Bật kênh (báo thức)" Checked="Any_Changed"/>
+                    <RadioButton x:Name="ActStop" GroupName="act" Style="{StaticResource Chip}" Content="Tắt app" Checked="Any_Changed"/>
+                </WrapPanel>
+
+                <TextBlock Text="Giờ" Style="{StaticResource Label}"/>
+                <StackPanel Orientation="Horizontal">
+                    <ComboBox x:Name="HourBox" Width="92" FontSize="18" SelectionChanged="Any_Changed"/>
+                    <TextBlock Text=":" FontSize="24" FontWeight="Bold" Margin="10,0" VerticalAlignment="Center"/>
+                    <ComboBox x:Name="MinBox" Width="92" FontSize="18" SelectionChanged="Any_Changed"/>
+                    <TextBlock Text="giờ : phút" Foreground="{StaticResource MutedBrush}" VerticalAlignment="Center" Margin="14,0,0,0"/>
+                </StackPanel>
+
+                <TextBlock Text="Lặp lại" Style="{StaticResource Label}"/>
+                <WrapPanel>
+                    <RadioButton x:Name="RepOnce" GroupName="rep" Style="{StaticResource Chip}" Content="Một lần" Checked="Any_Changed"/>
+                    <RadioButton x:Name="RepDaily" GroupName="rep" Style="{StaticResource Chip}" Content="Hằng ngày" Checked="Any_Changed"/>
+                    <RadioButton x:Name="RepWork" GroupName="rep" Style="{StaticResource Chip}" Content="Thứ 2 đến thứ 6" Checked="Any_Changed"/>
+                    <RadioButton x:Name="RepWeekend" GroupName="rep" Style="{StaticResource Chip}" Content="Cuối tuần" Checked="Any_Changed"/>
+                    <RadioButton x:Name="RepCustom" GroupName="rep" Style="{StaticResource Chip}" Content="Chọn thứ" Checked="Any_Changed"/>
+                    <RadioButton x:Name="RepDate" GroupName="rep" Style="{StaticResource Chip}" Content="Ngày, tháng cụ thể" Checked="Any_Changed"/>
+                </WrapPanel>
+                <WrapPanel x:Name="DaysPanel" Margin="0,6,0,0" Visibility="Collapsed"/>
+                <StackPanel x:Name="DatePanel" Orientation="Horizontal" Margin="0,8,0,0" Visibility="Collapsed">
+                    <TextBlock Text="Ngày" VerticalAlignment="Center" Margin="0,0,8,0"/>
+                    <ComboBox x:Name="DayBox" Width="78" SelectionChanged="Any_Changed"/>
+                    <TextBlock Text="Tháng" VerticalAlignment="Center" Margin="16,0,8,0"/>
+                    <ComboBox x:Name="MonthBox" Width="78" SelectionChanged="Any_Changed"/>
+                    <TextBlock Text="Năm" VerticalAlignment="Center" Margin="16,0,8,0"/>
+                    <ComboBox x:Name="YearBox" Width="96" SelectionChanged="Any_Changed"/>
+                </StackPanel>
+
+                <StackPanel x:Name="PlayPanel">
+                    <TextBlock Text="Kênh sẽ phát" Style="{StaticResource Label}"/>
+                    <ComboBox x:Name="ChannelBox" SelectionChanged="Any_Changed"/>
+                    <TextBlock x:Name="ChannelHint" Foreground="{StaticResource MutedBrush}" FontSize="12.5" TextWrapping="Wrap" Margin="2,6,0,0"
+                               Text="Danh sách gồm kênh đang phát, kênh yêu thích, kênh gần đây và các đài Việt Nam."/>
+
+                    <TextBlock Text="Âm lượng khi báo thức" Style="{StaticResource Label}"/>
+                    <DockPanel>
+                        <TextBlock x:Name="VolText" DockPanel.Dock="Right" Width="54" TextAlignment="Right" VerticalAlignment="Center" FontWeight="SemiBold"/>
+                        <Slider x:Name="VolSlider" Minimum="10" Maximum="100" SmallChange="5" LargeChange="10" ValueChanged="Vol_Changed"/>
+                    </DockPanel>
+                    <CheckBox x:Name="RampBox" Margin="0,12,0,0" Content="Tăng âm lượng từ nhỏ đến to trong khoảng 45 giây"/>
+
+                    <TextBlock Text="Tự tắt sau" Style="{StaticResource Label}"/>
+                    <ComboBox x:Name="AutoBox" Width="220" HorizontalAlignment="Left"/>
+                </StackPanel>
+
+                <TextBlock Text="Ghi chú (không bắt buộc)" Style="{StaticResource Label}"/>
+                <TextBox x:Name="LabelBox" MaxLength="40"/>
+
+                <TextBlock x:Name="Summary" Foreground="{StaticResource AmberBrush}" Margin="0,18,0,0" TextWrapping="Wrap" FontSize="15" FontWeight="SemiBold"/>
+            </StackPanel>
+        </ScrollViewer>
+        <Border Grid.Row="1" Background="{StaticResource PanelBrush}" BorderBrush="{StaticResource LineBrush}" BorderThickness="0,1,0,0" Padding="26,12">
+            <DockPanel>
+                <Button x:Name="DeleteBtn" DockPanel.Dock="Left" Content="Xóa" Click="Delete_Click"/>
+                <Button x:Name="TestBtn" DockPanel.Dock="Left" Content="Phát thử" Margin="8,0,0,0" Click="Test_Click"/>
+                <StackPanel Orientation="Horizontal" HorizontalAlignment="Right">
+                    <Button Content="Hủy" IsCancel="True"/>
+                    <Button Content="Lưu" Style="{StaticResource AccentBtn}" IsDefault="True" Margin="8,0,0,0" Click="Save_Click"/>
+                </StackPanel>
+            </DockPanel>
+        </Border>
+    </Grid>
+</Window>
