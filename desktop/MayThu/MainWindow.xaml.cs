@@ -206,7 +206,14 @@ namespace MayThu
             {
                 tray = new System.Windows.Forms.NotifyIcon { Text = "Máy Thu" };
                 var info = Application.GetResourceStream(new Uri("pack://application:,,,/app.ico"));
-                if (info != null) tray.Icon = new System.Drawing.Icon(info.Stream);
+                try
+                {
+                    if (info != null) tray.Icon = new System.Drawing.Icon(info.Stream);
+                }
+                catch
+                {
+                    tray.Icon = System.Drawing.Icon.ExtractAssociatedIcon(Environment.ProcessPath);
+                }
                 var menu = new System.Windows.Forms.ContextMenuStrip();
                 menu.Items.Add("Mở Máy Thu", null, (s, e) => ShowFromTray());
                 menu.Items.Add("Phát hoặc dừng", null, (s, e) => player.Toggle());
@@ -361,6 +368,7 @@ namespace MayThu
 
         public void Toast(string text)
         {
+            if (ToastText == null || ToastBox == null) return;
             ToastText.Text = text;
             ToastBox.Visibility = Visibility.Visible;
             if (toastTimer == null)
