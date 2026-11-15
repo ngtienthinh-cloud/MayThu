@@ -65,10 +65,27 @@ namespace MayThu
                 return;
             }
 
-            var w = new MainWindow();
-            MainWindow = w;
-            if (StartInTray && Store.SelfTestDir == null) w.StartHidden();
-            else w.Show();
+            try
+            {
+                var w = new MainWindow();
+                MainWindow = w;
+                if (StartInTray && Store.SelfTestDir == null) w.StartHidden();
+                else w.Show();
+            }
+            catch (Exception ex)
+            {
+                Store.LogError(ex);
+                if (Store.SelfTestDir != null)
+                {
+                    File.WriteAllText(Path.Combine(Store.SelfTestDir, "selftest.txt"), "Không mở được cửa sổ chính: " + ex + Environment.NewLine + "RESULT FAIL");
+                }
+                else
+                {
+                    MessageBox.Show("Máy Thu gặp lỗi khi mở cửa sổ chính.\n\n" + ex.Message + "\n\nChi tiết lỗi được ghi trong tệp loi.log ở thư mục dữ liệu.",
+                        "Máy Thu", MessageBoxButton.OK, MessageBoxImage.Error);
+                }
+                Shutdown();
+            }
         }
 
         private void OnUiError(object sender, DispatcherUnhandledExceptionEventArgs e)
