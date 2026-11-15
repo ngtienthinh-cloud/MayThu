@@ -44,14 +44,17 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.compose.runtime.mutableLongStateOf
 import kotlinx.coroutines.delay
+import vn.maythu.app.MainActivity
+import vn.maythu.app.alarm.AlarmState
 import vn.maythu.app.data.Channel
 import vn.maythu.app.data.Kind
 import vn.maythu.app.player.Playback
 import vn.maythu.app.player.Status
 
 enum class AppTab(val title: String) {
-    HOME("Trang chủ"), TV("Truyền hình"), RADIO("Radio"), FAV("Yêu thích"), MORE("Cài đặt")
+    HOME("Trang chủ"), TV("Truyền hình"), RADIO("Radio"), FAV("Yêu thích"), ALARM("Báo thức"), MORE("Cài đặt")
 }
 
 enum class Overlay { NONE, VIDEO, RADIO, SEARCH }
@@ -61,6 +64,7 @@ fun tabIcon(t: AppTab): ImageVector = when (t) {
     AppTab.TV -> Ic.Tv
     AppTab.RADIO -> Ic.Radio
     AppTab.FAV -> Ic.Star
+    AppTab.ALARM -> Ic.Alarm
     AppTab.MORE -> Ic.Settings
 }
 
@@ -83,6 +87,10 @@ fun AppRoot(vm: AppVm, detectedTv: Boolean) {
     var overlay by rememberSaveable { mutableStateOf(Overlay.NONE) }
     val holder = rememberSaveableStateHolder()
     val ctx = LocalContext.current
+    var hiddenRing by remember { mutableLongStateOf(-1L) }
+    val ringing = AlarmState.ringing
+    val ringVisible = ringing != null && hiddenRing != AlarmState.ringStartedAt
+    val editing = vm.editingAlarm
 
     val nav = remember {
         Nav(
@@ -107,8 +115,25 @@ fun AppRoot(vm: AppVm, detectedTv: Boolean) {
         }
     }
 
-    BackHandler(enabled = overlay != Overlay.NONE || tab != AppTab.HOME) {
-        if (overlay != Overlay.NONE) {
+    LaunchedEffect(AlarmState.openAlarmsTick) {
+        if (AlarmState.openAlarmsTick > 0) {
+            tab = AppTab.ALARM
+            overlay = Overlay.NONE
+        }
+    }
+    LaunchedEffect(AlarmState.exitTick) {
+        if (AlarmState.exitTick > 0) ctx.findActivity()?.finish()
+    }
+    LaunchedEffect(ringing) {
+        (ctx.findActivity() as? MainActivity)?.lockScreenMode(ringing != null)
+    }
+
+    BackHandler(enabled = ringVisible || editing != null || overlay != Overlay.NONE || tab != AppTab.HOME) {
+        if (ringVisible) {
+            hiddenRing = AlarmState.ringStartedAt
+        } else if (editing != null) {
+            vm.editingAlarm = null
+        } else if (overlay != Overlay.NONE) {
             if (overlay == Overlay.VIDEO) Playback.closeIfVideo()
             overlay = Overlay.NONE
         } else {
@@ -122,8 +147,12 @@ fun AppRoot(vm: AppVm, detectedTv: Boolean) {
             .background(Pal.Ink)
     ) {
         when (overlay) {
-            Overlay.NONE -> holder.SaveableStateProvider("shell") {
-                if (isTv) TvShell(vm, tab, nav, holder) else PhoneShell(vm, tab, nav, holder)
+            Overlay.NONE -> if (editing != null) {
+                AlarmEditor(vm = vm, isTv = isTv, initial = editing, onClose = { vm.editingAlarm = null })
+            } else {
+                holder.SaveableStateProvider("shell") {
+                    if (isTv) TvShell(vm, tab, nav, holder) else PhoneShell(vm, tab, nav, holder)
+                }
             }
             Overlay.VIDEO -> VideoPlayerScreen(
                 vm = vm,
@@ -138,16 +167,32 @@ fun AppRoot(vm: AppVm, detectedTv: Boolean) {
                 SearchScreen(vm = vm, isTv = isTv, nav = nav, onClose = { overlay = Overlay.NONE })
             }
         }
+        if (ringVisible) {
+            AlarmRingingScreen(
+                vm = vm,
+                isTv = isTv,
+                onHide = { hiddenRing = AlarmState.ringStartedAt },
+                onWatch = {
+                    hiddenRing = AlarmState.ringStartedAt
+                    overlay = Overlay.VIDEO
+                },
+            )
+        }
     }
 }
 
 @Composable
 private fun TabContent(tab: AppTab, vm: AppVm, isTv: Boolean, nav: Nav) {
     when (tab) {
-        AppTab.HOME -> HomeTab(vm, isTv, nav)
+        AppTab.HOME -> Column(Modifier.fillMaxSize()) {
+            NextAlarmCard(vm, if (isTv) 12.dp else 16.dp) { nav.goTab(AppTab.ALARM) }
+            Spacer(Modifier.height(if (isTv) 14.dp else 10.dp))
+            HomeTab(vm, isTv, nav)
+        }
         AppTab.TV -> TvTab(vm, isTv, nav)
         AppTab.RADIO -> RadioTab(vm, isTv, nav)
         AppTab.FAV -> FavTab(vm, isTv, nav)
+        AppTab.ALARM -> AlarmTab(vm, isTv, nav)
         AppTab.MORE -> SettingsTab(vm, isTv, nav)
     }
 }
@@ -180,13 +225,16 @@ private fun PhoneShell(vm: AppVm, tab: AppTab, nav: Nav, holder: SaveableStateHo
                 IconButton(onClick = nav.openSearch) {
                     Icon(Ic.Search, contentDescription = "Tìm kiếm", tint = Pal.Text)
                 }
+                IconButton(onClick = { nav.goTab(AppTab.MORE) }) {
+                    Icon(Ic.Settings, contentDescription = "Cài đặt", tint = if (tab == AppTab.MORE) Pal.Amber else Pal.Text)
+                }
             }
         },
         bottomBar = {
             Column {
                 if (Playback.current != null) MiniPlayer(onOpen = nav.openNowPlaying)
                 NavigationBar(containerColor = Pal.Panel, contentColor = Pal.Text, tonalElevation = 0.dp) {
-                    for (t in AppTab.entries) {
+                    for (t in AppTab.entries.filter { it != AppTab.MORE }) {
                         NavigationBarItem(
                             selected = t == tab,
                             onClick = { nav.goTab(t) },
