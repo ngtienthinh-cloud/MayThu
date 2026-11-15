@@ -1,0 +1,123 @@
+{
+  "Favorites": [
+    {
+      "Id": "r:3aa9ffce-7476-4e61-93f2-9662ea5d4b93",
+      "Kind": "RADIO",
+      "Name": "RFI Ti\u1EBFng Vi\u1EC7t",
+      "Url": "https://rfienvietnamien64k.ice.infomaniak.ch/rfienvietnamien-64.mp3",
+      "Logo": "",
+      "Group": "",
+      "Country": "Vietnam",
+      "Tags": "news",
+      "Codec": "MP3",
+      "Bitrate": 64,
+      "Hls": false,
+      "Referrer": "",
+      "UserAgent": "",
+      "Uuid": "3aa9ffce-7476-4e61-93f2-9662ea5d4b93",
+      "Labels": []
+    }
+  ],
+  "Recent": [
+    {
+      "Id": "tv:1505a7c419",
+      "Kind": "TV",
+      "Name": "An Ninh TV HD",
+      "Url": "https://freem3u.xyz/api/live/play.m3u8?vid=20",
+      "Logo": "https://static.wikia.nocookie.net/logos/images/1/1a/ANTV_2023.png/revision/latest/scale-to-width-down/512?path-prefix=vi",
+      "Group": "Kh\u00E1c",
+      "Country": "",
+      "Tags": "",
+      "Codec": "",
+      "Bitrate": 0,
+      "Hls": false,
+      "Referrer": "",
+      "UserAgent": "",
+      "Uuid": "",
+      "Labels": [
+        "1080p"
+      ]
+    },
+    {
+      "Id": "r:3aa9ffce-7476-4e61-93f2-9662ea5d4b93",
+      "Kind": "RADIO",
+      "Name": "RFI Ti\u1EBFng Vi\u1EC7t",
+      "Url": "https://rfienvietnamien64k.ice.infomaniak.ch/rfienvietnamien-64.mp3",
+      "Logo": "",
+      "Group": "",
+      "Country": "Vietnam",
+      "Tags": "news",
+      "Codec": "MP3",
+      "Bitrate": 64,
+      "Hls": false,
+      "Referrer": "",
+      "UserAgent": "",
+      "Uuid": "3aa9ffce-7476-4e61-93f2-9662ea5d4b93",
+      "Labels": []
+    }
+  ],
+  "Custom": [],
+  "Playlists": [],
+  "Alarms": [
+    {
+      "Id": 1,
+      "Enabled": true,
+      "Action": "PLAY",
+      "Hour": 6,
+      "Minute": 0,
+      "Days": 127,
+      "Date": "",
+      "Channel": {
+        "Id": "tv:1505a7c419",
+        "Kind": "TV",
+        "Name": "An Ninh TV HD",
+        "Url": "https://freem3u.xyz/api/live/play.m3u8?vid=20",
+        "Logo": "https://static.wikia.nocookie.net/logos/images/1/1a/ANTV_2023.png/revision/latest/scale-to-width-down/512?path-prefix=vi",
+        "Group": "Kh\u00E1c",
+        "Country": "",
+        "Tags": "",
+        "Codec": "",
+        "Bitrate": 0,
+        "Hls": false,
+        "Referrer": "",
+        "UserAgent": "",
+        "Uuid": "",
+        "Labels": [
+          "1080p"
+        ]
+      },
+      "Volume": 70,
+      "Ramp": true,
+      "AutoStopMin": 60,
+      "Label": ""
+    },
+    {
+      "Id": 2,
+      "Enabled": true,
+      "Action": "STOP",
+      "Hour": 23,
+      "Minute": 0,
+      "Days": 127,
+      "Date": "",
+      "Channel": null,
+      "Volume": 70,
+      "Ramp": true,
+      "AutoStopMin": 60,
+      "Label": ""
+    }
+  ],
+  "Volume": 70,
+  "Page": "settings",
+  "TvCat": "vn",
+  "RadioCat": "vn",
+  "FavCat": "fav",
+  "MineCat": "custom",
+  "CloseToTray": true,
+  "TrayTipShown": false,
+  "ListWidth": 440,
+  "WinLeft": "NaN",
+  "WinTop": "NaN",
+  "WinWidth": 0,
+  "WinHeight": 0,
+  "WinMax": false
+}
