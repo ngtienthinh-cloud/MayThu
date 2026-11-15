@@ -11,7 +11,13 @@ import androidx.lifecycle.viewModelScope
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.launch
+import vn.maythu.app.alarm.AlarmScheduler
+import vn.maythu.app.alarm.AlarmService
+import vn.maythu.app.data.AlarmAction
+import vn.maythu.app.data.AlarmItem
+import vn.maythu.app.data.AlarmTime
 import vn.maythu.app.data.Catalog
+import vn.maythu.app.data.Kind
 import vn.maythu.app.data.Channel
 import vn.maythu.app.data.ListState
 import vn.maythu.app.data.Playlist
@@ -28,6 +34,10 @@ class AppVm(app: Application) : AndroidViewModel(app) {
     val recent = mutableStateListOf<Channel>()
     val playlists = mutableStateListOf<Playlist>()
     val lists = mutableStateMapOf<String, ListState>()
+    val alarms = mutableStateListOf<AlarmItem>()
+
+    /** Báo thức đang được sửa (null = không mở trình sửa). */
+    var editingAlarm by mutableStateOf<AlarmItem?>(null)
 
     var tvCat by mutableStateOf(store.getString("tvCat", "vn"))
         private set
@@ -53,7 +63,95 @@ class AppVm(app: Application) : AndroidViewModel(app) {
         favorites.addAll(store.favorites())
         recent.addAll(store.recent())
         playlists.addAll(store.playlists())
+        alarms.addAll(store.alarms())
         Playback.onStarted = { ch -> addRecent(ch) }
+        // phòng khi hệ thống đã xóa lịch (buộc dừng app, cập nhật)
+        AlarmScheduler.rescheduleAll(app)
+    }
+
+    private val appCtx: Application
+        get() = getApplication()
+
+    // ---------- báo thức, hẹn giờ ----------
+
+    fun reloadAlarms() {
+        alarms.clear()
+        alarms.addAll(store.alarms())
+    }
+
+    fun newAlarm(action: AlarmAction) {
+        val id = (alarms.maxOfOrNull { it.id } ?: 0) + 1
+        val cur = Playback.current
+        val ch = if (action == AlarmAction.PLAY) {
+            cur ?: favorites.firstOrNull { it.kind == Kind.RADIO } ?: recent.firstOrNull { it.kind == Kind.RADIO }
+                ?: favorites.firstOrNull() ?: recent.firstOrNull()
+        } else {
+            null
+        }
+        editingAlarm = if (action == AlarmAction.PLAY) {
+            AlarmItem(id = id, action = action, hour = 6, minute = 0, days = AlarmItem.ALL, channel = ch)
+        } else {
+            AlarmItem(id = id, action = action, hour = 23, minute = 0, days = AlarmItem.ALL)
+        }
+    }
+
+    /** Lưu và đặt lịch. Trả về false nếu chưa hợp lệ (đã hiện thông báo lý do). */
+    fun saveAlarm(a: AlarmItem): Boolean {
+        if (a.action == AlarmAction.PLAY && a.channel == null) {
+            message = "Hãy chọn kênh hoặc đài sẽ phát khi báo thức"
+            return false
+        }
+        val next = a.nextTrigger()
+        if (a.enabled && next == null) {
+            message = "Thời điểm này đã qua, hãy chọn giờ hoặc ngày khác"
+            return false
+        }
+        val i = alarms.indexOfFirst { it.id == a.id }
+        if (i >= 0) alarms[i] = a else alarms.add(a)
+        store.saveAlarms(alarms.toList())
+        AlarmScheduler.schedule(appCtx, a)
+        message = if (a.enabled && next != null) {
+            val what = if (a.action == AlarmAction.PLAY) "báo thức" else "hẹn giờ tắt"
+            "Đã đặt $what lúc " + AlarmTime.whenText(next) + ". " + AlarmTime.untilText(next)
+        } else {
+            "Đã lưu (đang tắt)"
+        }
+        return true
+    }
+
+    fun toggleAlarm(a: AlarmItem, on: Boolean) {
+        if (on && a.nextTrigger() == null) {
+            message = "Thời điểm này đã qua, hãy sửa lại giờ hoặc ngày"
+            return
+        }
+        saveAlarm(a.copy(enabled = on))
+    }
+
+    fun deleteAlarm(a: AlarmItem) {
+        AlarmScheduler.cancel(appCtx, a.id)
+        alarms.removeAll { it.id == a.id }
+        store.saveAlarms(alarms.toList())
+        message = "Đã xóa hẹn giờ " + a.timeText
+    }
+
+    /** Phát thử báo thức ngay bây giờ (không cần lưu). */
+    fun testAlarm(a: AlarmItem) {
+        if (a.action == AlarmAction.PLAY && a.channel == null) {
+            message = "Hãy chọn kênh trước khi phát thử"
+            return
+        }
+        AlarmService.start(appCtx, a)
+    }
+
+    /** Báo thức bật kênh gần nhất sắp reo. */
+    fun nextAlarm(): Pair<AlarmItem, Long>? {
+        var best: Pair<AlarmItem, Long>? = null
+        for (a in alarms) {
+            if (!a.enabled) continue
+            val t = a.nextTrigger() ?: continue
+            if (best == null || t < best.second) best = a to t
+        }
+        return best
     }
 
     override fun onCleared() {
