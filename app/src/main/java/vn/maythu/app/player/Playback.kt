@@ -50,6 +50,10 @@ object Playback {
     private val scope = MainScope()
     private var retryJob: Job? = null
     private var sleepJob: Job? = null
+    private var rampJob: Job? = null
+
+    val isReady: Boolean
+        get() = inited
 
     var current by mutableStateOf<Channel?>(null)
         private set
@@ -227,7 +231,48 @@ object Playback {
         }
     }
 
+    /** Báo thức: phát kênh, âm lượng tăng dần từ nhỏ lên to trong khoảng 45 giây. */
+    fun playAlarm(ch: Channel, ramp: Boolean) {
+        play(ch, listOf(ch))
+        if (!ramp) return
+        player.volume = 0.12f
+        rampJob = scope.launch {
+            var waited = 0
+            while (status != Status.PLAYING && waited < 120) {
+                delay(500)
+                waited++
+            }
+            for (k in 1..30) {
+                player.volume = 0.12f + 0.88f * k / 30f
+                delay(1_500)
+            }
+        }
+    }
+
+    fun endRamp() {
+        rampJob?.cancel()
+        rampJob = null
+        if (inited) player.volume = 1f
+    }
+
+    /** Hẹn giờ tắt: giảm dần âm lượng rồi tắt. */
+    fun fadeOutAndClose() {
+        rampJob?.cancel()
+        scope.launch {
+            val v0 = player.volume
+            for (k in 1..15) {
+                player.volume = v0 * (1f - k / 15f)
+                delay(150)
+            }
+            close()
+            player.volume = 1f
+        }
+    }
+
     fun play(ch: Channel, list: List<Channel>? = null) {
+        rampJob?.cancel()
+        rampJob = null
+        player.volume = 1f
         if (!list.isNullOrEmpty()) queue = list
         var i = queue.indexOfFirst { it.id == ch.id }
         if (i < 0) {
